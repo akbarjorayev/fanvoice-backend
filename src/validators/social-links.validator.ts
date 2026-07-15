@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { httpError } from '../middleware/error.middleware';
 
 export const PLATFORMS = [
   'twitter',
@@ -35,5 +36,11 @@ export const upsertSocialLinkSchema = z.object({
 });
 
 export const platformParamSchema = z.enum(PLATFORMS);
+
+export function parsePlatformOrThrow(raw: unknown): Platform {
+  const parsed = platformParamSchema.safeParse(raw);
+  if (!parsed.success) throw httpError('Invalid platform', 400);
+  return parsed.data;
+}
 
 export type UpsertSocialLinkInput = z.infer<typeof upsertSocialLinkSchema>;

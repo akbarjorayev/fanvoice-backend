@@ -8,6 +8,6 @@ CREATE TABLE users (
   avatar_url   TEXT,
   verified     BOOLEAN     DEFAULT FALSE,
 
-  deleted_at   TIMESTAMP   NULL,
-  created_at   TIMESTAMP   NOT NULL DEFAULT NOW()
+  deleted_at   TIMESTAMPTZ NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

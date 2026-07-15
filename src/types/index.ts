@@ -1,4 +1,7 @@
 import { Request } from 'express';
+import { AuthProvider } from '../constants/auth';
+
+export type { AuthProvider };
 
 export interface User {
   id: string;
@@ -26,7 +29,7 @@ export interface SocialLink {
 
 export interface AuthAccount {
   user_id: string;
-  provider: 'google' | 'password';
+  provider: AuthProvider;
   provider_user_id: string | null;
 }
 
@@ -51,6 +54,10 @@ export interface Message {
 export interface JwtPayload {
   sub: string;
 }
+
+export type ReadFilter = 'all' | 'read' | 'unread';
+export type PayFilter = 'all' | 'paid' | 'unpaid';
+export type SortFilter = 'date' | 'money';
 
 export interface AuthenticatedRequest extends Request {
   user?: User;

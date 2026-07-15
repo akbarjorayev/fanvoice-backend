@@ -7,7 +7,8 @@ import { db } from './config/database';
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
 async function start() {
-  await db.connect();
+  const client = await db.connect();
+  client.release();
   console.log('Connected to database');
 
   app.listen(PORT, () => {

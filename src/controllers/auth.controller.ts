@@ -1,13 +1,14 @@
 import { Response, NextFunction } from 'express';
 import { googleSignIn, emailSignUp, emailSignIn, changePassword } from '../services/auth.service';
 import { AuthenticatedRequest } from '../types';
-
-const SESSION_COOKIE = 'session';
+import { SESSION_COOKIE } from '../constants/cookies';
+import { SESSION_DURATION_MS } from '../constants/session';
+import { IS_PRODUCTION } from '../constants/env';
 
 function cookieOptions(maxAge?: number) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: IS_PRODUCTION,
     sameSite: 'lax' as const,
     domain: process.env.COOKIE_DOMAIN || undefined,
     path: '/',
@@ -16,7 +17,7 @@ function cookieOptions(maxAge?: number) {
 }
 
 function setSession(res: Response, accessToken: string) {
-  res.cookie(SESSION_COOKIE, accessToken, cookieOptions(14 * 24 * 60 * 60 * 1000));
+  res.cookie(SESSION_COOKIE, accessToken, cookieOptions(SESSION_DURATION_MS));
 }
 
 export async function handleGoogleSignIn(

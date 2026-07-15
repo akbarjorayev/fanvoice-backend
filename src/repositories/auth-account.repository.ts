@@ -1,8 +1,8 @@
 import { db } from '../config/database';
-import { AuthAccount } from '../types';
+import { AuthAccount, AuthProvider } from '../types';
 
 export async function findAuthAccount(
-  provider: 'google' | 'password',
+  provider: AuthProvider,
   providerUserId: string,
 ): Promise<AuthAccount | null> {
   const result = await db.query<AuthAccount>(
@@ -14,7 +14,7 @@ export async function findAuthAccount(
 
 export async function createAuthAccount(params: {
   userId: string;
-  provider: 'google' | 'password';
+  provider: AuthProvider;
   providerUserId: string | null;
 }): Promise<AuthAccount> {
   const result = await db.query<AuthAccount>(

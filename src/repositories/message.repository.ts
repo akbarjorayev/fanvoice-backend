@@ -1,15 +1,18 @@
 import { db } from '../config/database';
-import { Message } from '../types';
+import { Message, ReadFilter, PayFilter, SortFilter } from '../types';
+import { CREATOR_SHARE } from '../constants/fees';
 
 export interface SentMessage extends Message {
   creator_name: string;
   creator_username: string;
+  creator_avatar_url: string | null;
   paid_at: Date | null;
 }
 
 export interface ReceivedMessage extends Message {
   fan_name: string;
   fan_username: string;
+  fan_avatar_url: string | null;
 }
 
 export interface MessageDetail {
@@ -32,6 +35,10 @@ export interface MessageDetail {
   creator_verified: boolean;
 }
 
+function totalFromRows<T extends { total_count: string }>(rows: T[]): number {
+  return rows.length > 0 ? Number(rows[0].total_count) : 0;
+}
+
 export async function createMessage(params: {
   fan_id: string;
   creator_id: string;
@@ -52,8 +59,8 @@ export async function getSentMessages(
   fanId: string,
   page: number,
   limit: number,
-  read: 'all' | 'read' | 'unread' = 'all',
-  pay: 'all' | 'paid' | 'unpaid' = 'all',
+  read: ReadFilter = 'all',
+  pay: PayFilter = 'all',
 ): Promise<{ messages: SentMessage[]; total: number }> {
   type Row = SentMessage & { total_count: string };
   const conditions: string[] = ['m.fan_id = $1'];
@@ -63,7 +70,7 @@ export async function getSentMessages(
   if (pay === 'unpaid') conditions.push('m.paid_at IS NULL');
   const result = await db.query<Row>(
     `SELECT m.id, m.fan_id, m.creator_id, m.title, m.message, m.price, m.created_at, m.read_at, m.paid_at,
-            u.display_name AS creator_name, u.username AS creator_username,
+            u.display_name AS creator_name, u.username AS creator_username, u.avatar_url AS creator_avatar_url,
             COUNT(*) OVER() AS total_count
      FROM messages m
      JOIN users u ON m.creator_id = u.id
@@ -72,21 +79,20 @@ export async function getSentMessages(
      LIMIT $2 OFFSET $3`,
     [fanId, limit, (page - 1) * limit],
   );
-  const total = result.rows.length > 0 ? Number(result.rows[0].total_count) : 0;
-  return { messages: result.rows, total };
+  return { messages: result.rows, total: totalFromRows(result.rows) };
 }
 
 export async function getReceivedMessages(
   creatorId: string,
   page: number,
   limit: number,
-  sort: 'date' | 'money' = 'date',
+  sort: SortFilter = 'date',
 ): Promise<{ messages: ReceivedMessage[]; total: number }> {
   type Row = ReceivedMessage & { total_count: string };
   const orderBy = sort === 'money' ? 'm.price DESC' : 'm.created_at DESC';
   const result = await db.query<Row>(
     `SELECT m.id, m.fan_id, m.creator_id, m.title, m.message, m.price, m.created_at, m.read_at,
-            u.display_name AS fan_name, u.username AS fan_username,
+            u.display_name AS fan_name, u.username AS fan_username, u.avatar_url AS fan_avatar_url,
             COUNT(*) OVER() AS total_count
      FROM messages m
      JOIN users u ON m.fan_id = u.id
@@ -95,22 +101,23 @@ export async function getReceivedMessages(
      LIMIT $2 OFFSET $3`,
     [creatorId, limit, (page - 1) * limit],
   );
-  const total = result.rows.length > 0 ? Number(result.rows[0].total_count) : 0;
-  return { messages: result.rows, total };
+  return { messages: result.rows, total: totalFromRows(result.rows) };
 }
 
-export async function getMessageCounts(userId: string): Promise<{ sent: number; received: number; unread_received: number }> {
-  const result = await db.query<{ sent_count: string; received_count: string; unread_received_count: string }>(
+export async function getMessageCounts(userId: string): Promise<{ sent: number; received: number; unread_received: number; total_earned: number }> {
+  const result = await db.query<{ sent_count: string; received_count: string; unread_received_count: string; total_earned: string }>(
     `SELECT
        (SELECT COUNT(*) FROM messages WHERE fan_id = $1) AS sent_count,
        (SELECT COUNT(*) FROM messages WHERE creator_id = $1 AND paid_at IS NOT NULL) AS received_count,
-       (SELECT COUNT(*) FROM messages WHERE creator_id = $1 AND paid_at IS NOT NULL AND read_at IS NULL) AS unread_received_count`,
+       (SELECT COUNT(*) FROM messages WHERE creator_id = $1 AND paid_at IS NOT NULL AND read_at IS NULL) AS unread_received_count,
+       COALESCE((SELECT SUM(ROUND(price * ${CREATOR_SHARE})) FROM messages WHERE creator_id = $1 AND paid_at IS NOT NULL AND read_at IS NOT NULL), 0) AS total_earned`,
     [userId],
   );
   return {
     sent: Number(result.rows[0].sent_count),
     received: Number(result.rows[0].received_count),
     unread_received: Number(result.rows[0].unread_received_count),
+    total_earned: Number(result.rows[0].total_earned),
   };
 }
 
