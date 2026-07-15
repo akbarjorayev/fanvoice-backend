@@ -9,9 +9,9 @@ CREATE TABLE messages (
 
   price BIGINT NOT NULL,
 
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  read_at   TIMESTAMP,
-  paid_at   TIMESTAMP,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  read_at   TIMESTAMPTZ,
+  paid_at   TIMESTAMPTZ,
 
   CHECK (fan_id != creator_id)
 );

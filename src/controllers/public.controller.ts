@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { findUserByUsername } from '../repositories/user.repository';
 import { getSocialLinksByUserId } from '../repositories/social-links.repository';
-import { getCreatorByUserId } from '../repositories/creator.repository';
+import { getCreatorByUserId, creatorFields } from '../repositories/creator.repository';
+import { USER_NOT_FOUND } from '../constants/messages';
 
 export async function handleGetPublicProfile(
   req: Request,
@@ -13,7 +14,7 @@ export async function handleGetPublicProfile(
     const user = await findUserByUsername(username);
 
     if (!user) {
-      res.status(404).json({ message: 'User not found' });
+      res.status(404).json({ message: USER_NOT_FOUND });
       return;
     }
 
@@ -30,11 +31,7 @@ export async function handleGetPublicProfile(
         username: user.username,
         avatar_url: user.avatar_url,
         created_at: user.created_at,
-        is_creator: !!creator,
-        creator_bio: creator?.bio ?? null,
-        creator_since: creator?.created_at ?? null,
-        creator_min_price: creator?.min_price_per_message ?? null,
-        creator_verified_at: creator?.verified_at ?? null,
+        ...creatorFields(creator),
       },
       links,
     });

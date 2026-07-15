@@ -1,6 +1,8 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../types';
-import { becomeCreator, updateCreator, getCreatorByUserId } from '../repositories/creator.repository';
+import { becomeCreator, updateCreator } from '../repositories/creator.repository';
+import { requireCreator } from '../services/creator.service';
+import { CREATOR_PRICE_STEP, CREATOR_MAX_PRICE } from '../constants/pricing';
 
 export async function handleBecomeCreator(
   req: AuthenticatedRequest,
@@ -22,11 +24,7 @@ export async function handleUpdateCreator(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const existing = await getCreatorByUserId(req.user!.id);
-    if (!existing) {
-      res.status(403).json({ message: 'Not a creator' });
-      return;
-    }
+    await requireCreator(req.user!.id);
 
     const params: { bio?: string; min_price_per_message?: number } = {};
 
@@ -39,11 +37,11 @@ export async function handleUpdateCreator(
         res.status(400).json({ message: 'Price must be a non-negative integer' });
         return;
       }
-      if (price > 0 && price % 1000 !== 0) {
+      if (price > 0 && price % CREATOR_PRICE_STEP !== 0) {
         res.status(400).json({ message: 'Price must be a multiple of 1,000' });
         return;
       }
-      if (price > 1_000_000) {
+      if (price > CREATOR_MAX_PRICE) {
         res.status(400).json({ message: 'Price cannot exceed 1,000,000 so\'m' });
         return;
       }

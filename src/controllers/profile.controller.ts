@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../types';
 import { updateProfile } from '../services/profile.service';
 import { userHasPassword } from '../repositories/credentials.repository';
-import { getCreatorByUserId } from '../repositories/creator.repository';
+import { getCreatorByUserId, creatorFields } from '../repositories/creator.repository';
 
 export async function handleGetProfile(
   req: AuthenticatedRequest,
@@ -16,11 +16,7 @@ export async function handleGetProfile(
     user: {
       ...req.user,
       has_password: hasPassword,
-      is_creator: !!creator,
-      creator_bio: creator?.bio ?? null,
-      creator_since: creator?.created_at ?? null,
-      creator_min_price: creator?.min_price_per_message ?? null,
-      creator_verified_at: creator?.verified_at ?? null,
+      ...creatorFields(creator),
     },
   });
 }

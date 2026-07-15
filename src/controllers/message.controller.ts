@@ -1,11 +1,11 @@
 import { Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../types';
-import { createMessage, getSentMessages, getReceivedMessages, getMessageById, getMessageCounts, markMessageAsRead, markMessageAsPaid } from '../repositories/message.repository';
+import { AuthenticatedRequest, ReadFilter, PayFilter, SortFilter } from '../types';
+import { createMessage, getSentMessages, getReceivedMessages, getMessageCounts, markMessageAsRead, markMessageAsPaid } from '../repositories/message.repository';
 import { getCreatorByUserId } from '../repositories/creator.repository';
-
-const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 50;
-const PLATFORM_MIN_PRICE = 10_000;
+import { requireCreator } from '../services/creator.service';
+import { getMessageOrThrow } from '../services/message.service';
+import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from '../constants/pagination';
+import { PLATFORM_MIN_PRICE } from '../constants/pricing';
 
 function parsePage(raw: unknown): number {
   const n = parseInt(String(raw ?? '1'), 10);
@@ -13,9 +13,9 @@ function parsePage(raw: unknown): number {
 }
 
 function parseLimit(raw: unknown): number {
-  const n = parseInt(String(raw ?? DEFAULT_LIMIT), 10);
-  if (isNaN(n) || n < 1) return DEFAULT_LIMIT;
-  return Math.min(n, MAX_LIMIT);
+  const n = parseInt(String(raw ?? DEFAULT_PAGE_LIMIT), 10);
+  if (isNaN(n) || n < 1) return DEFAULT_PAGE_LIMIT;
+  return Math.min(n, MAX_PAGE_LIMIT);
 }
 
 export async function handleSendMessage(
@@ -59,8 +59,8 @@ export async function handleGetSentMessages(
   try {
     const page = parsePage(req.query.page);
     const limit = parseLimit(req.query.limit);
-    const read = req.query.read === 'read' ? 'read' : req.query.read === 'unread' ? 'unread' : 'all';
-    const pay = req.query.pay === 'paid' ? 'paid' : req.query.pay === 'unpaid' ? 'unpaid' : 'all';
+    const read: ReadFilter = req.query.read === 'read' ? 'read' : req.query.read === 'unread' ? 'unread' : 'all';
+    const pay: PayFilter = req.query.pay === 'paid' ? 'paid' : req.query.pay === 'unpaid' ? 'unpaid' : 'all';
     const { messages, total } = await getSentMessages(req.user!.id, page, limit, read, pay);
     res.status(200).json({ messages, total, page, limit });
   } catch (err) {
@@ -74,14 +74,10 @@ export async function handleGetReceivedMessages(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const creator = await getCreatorByUserId(req.user!.id);
-    if (!creator) {
-      res.status(403).json({ message: 'You are not a creator' });
-      return;
-    }
+    await requireCreator(req.user!.id, 'You are not a creator');
     const page = parsePage(req.query.page);
     const limit = parseLimit(req.query.limit);
-    const sort = req.query.sort === 'money' ? 'money' : 'date';
+    const sort: SortFilter = req.query.sort === 'money' ? 'money' : 'date';
     const { messages, total } = await getReceivedMessages(req.user!.id, page, limit, sort);
     res.status(200).json({ messages, total, page, limit });
   } catch (err) {
@@ -108,11 +104,7 @@ export async function handleMarkAsRead(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const msg = await getMessageById(String(req.params.id));
-    if (!msg) {
-      res.status(404).json({ message: 'Message not found' });
-      return;
-    }
+    const msg = await getMessageOrThrow(String(req.params.id));
     if (msg.creator_id !== req.user!.id) {
       res.status(403).json({ message: 'Only the creator can mark a message as read' });
       return;
@@ -130,11 +122,7 @@ export async function handlePayMessage(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const msg = await getMessageById(String(req.params.id));
-    if (!msg) {
-      res.status(404).json({ message: 'Message not found' });
-      return;
-    }
+    const msg = await getMessageOrThrow(String(req.params.id));
     if (msg.fan_id !== req.user!.id) {
       res.status(403).json({ message: 'Only the fan who sent this message can pay for it' });
       return;
@@ -156,11 +144,7 @@ export async function handleGetMessage(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const msg = await getMessageById(String(req.params.id));
-    if (!msg) {
-      res.status(404).json({ message: 'Message not found' });
-      return;
-    }
+    const msg = await getMessageOrThrow(String(req.params.id));
     const userId = req.user!.id;
     if (msg.fan_id !== userId && msg.creator_id !== userId) {
       res.status(403).json({ message: 'Access denied' });

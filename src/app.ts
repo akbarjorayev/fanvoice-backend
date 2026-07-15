@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import router from './routes';
 import { errorHandler } from './middleware/error.middleware';
@@ -8,6 +9,8 @@ import { errorHandler } from './middleware/error.middleware';
 dotenv.config();
 
 const app = express();
+
+app.use(compression());
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((o) => o.trim());
 

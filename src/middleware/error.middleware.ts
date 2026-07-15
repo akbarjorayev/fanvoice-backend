@@ -1,7 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
+import { IS_PRODUCTION } from '../constants/env';
 
 export interface AppError extends Error {
   statusCode?: number;
+}
+
+export function httpError(message: string, statusCode: number): AppError {
+  const err = new Error(message) as AppError;
+  err.statusCode = statusCode;
+  return err;
 }
 
 export function errorHandler(
@@ -12,7 +19,7 @@ export function errorHandler(
 ): void {
   const statusCode = err.statusCode ?? 500;
   const message =
-    statusCode === 500 && process.env.NODE_ENV === 'production'
+    statusCode === 500 && IS_PRODUCTION
       ? 'Internal server error'
       : err.message;
 

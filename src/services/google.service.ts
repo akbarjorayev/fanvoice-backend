@@ -1,27 +1,28 @@
-import { googleClient } from '../config/google';
+import { googleClient, GOOGLE_CLIENT_ID } from '../config/google';
+import { httpError } from '../middleware/error.middleware';
 import { GoogleProfile } from '../types';
 
 export async function exchangeCodeForProfile(code: string): Promise<GoogleProfile> {
   const { tokens } = await googleClient.getToken({ code, redirect_uri: 'postmessage' });
-  if (!tokens.id_token) throw new Error('No id_token received from Google');
+  if (!tokens.id_token) throw httpError('No id_token received from Google', 400);
   return verifyGoogleToken(tokens.id_token);
 }
 
 export async function verifyGoogleToken(idToken: string): Promise<GoogleProfile> {
   const ticket = await googleClient.verifyIdToken({
     idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
+    audience: GOOGLE_CLIENT_ID,
   });
 
   const payload = ticket.getPayload();
   if (!payload) {
-    throw new Error('Invalid Google token: empty payload');
+    throw httpError('Invalid Google token: empty payload', 400);
   }
 
   const { sub, email, name, picture } = payload;
 
   if (!sub || !email || !name) {
-    throw new Error('Invalid Google token: missing required fields');
+    throw httpError('Invalid Google token: missing required fields', 400);
   }
 
   return {

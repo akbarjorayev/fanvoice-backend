@@ -9,6 +9,16 @@ export async function getCreatorByUserId(userId: string): Promise<Creator | null
   return result.rows[0] ?? null;
 }
 
+export function creatorFields(creator: Creator | null) {
+  return {
+    is_creator: !!creator,
+    creator_bio: creator?.bio ?? null,
+    creator_since: creator?.created_at ?? null,
+    creator_min_price: creator?.min_price_per_message ?? null,
+    creator_verified_at: creator?.verified_at ?? null,
+  };
+}
+
 export async function becomeCreator(userId: string, bio?: string): Promise<Creator> {
   const result = await db.query<Creator>(
     `INSERT INTO creators (user_id, bio)
