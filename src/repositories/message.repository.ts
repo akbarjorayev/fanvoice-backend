@@ -13,6 +13,7 @@ export interface ReceivedMessage extends Message {
   fan_name: string;
   fan_username: string;
   fan_avatar_url: string | null;
+  creator_earning: number;
 }
 
 export interface MessageDetail {
@@ -22,6 +23,7 @@ export interface MessageDetail {
   title: string;
   message: string;
   price: number;
+  creator_earning: number;
   created_at: Date;
   read_at: Date | null;
   paid_at: Date | null;
@@ -87,16 +89,21 @@ export async function getReceivedMessages(
   page: number,
   limit: number,
   sort: SortFilter = 'date',
+  read: ReadFilter = 'all',
 ): Promise<{ messages: ReceivedMessage[]; total: number }> {
   type Row = ReceivedMessage & { total_count: string };
   const orderBy = sort === 'money' ? 'm.price DESC' : 'm.created_at DESC';
+  const conditions: string[] = ['m.creator_id = $1', 'm.paid_at IS NOT NULL'];
+  if (read === 'read') conditions.push('m.read_at IS NOT NULL');
+  if (read === 'unread') conditions.push('m.read_at IS NULL');
   const result = await db.query<Row>(
     `SELECT m.id, m.fan_id, m.creator_id, m.title, m.message, m.price, m.created_at, m.read_at,
+            ROUND(m.price * ${CREATOR_SHARE})::int AS creator_earning,
             u.display_name AS fan_name, u.username AS fan_username, u.avatar_url AS fan_avatar_url,
             COUNT(*) OVER() AS total_count
      FROM messages m
      JOIN users u ON m.fan_id = u.id
-     WHERE m.creator_id = $1 AND m.paid_at IS NOT NULL
+     WHERE ${conditions.join(' AND ')}
      ORDER BY ${orderBy}
      LIMIT $2 OFFSET $3`,
     [creatorId, limit, (page - 1) * limit],
@@ -135,9 +142,24 @@ export async function markMessageAsPaid(id: string): Promise<void> {
   );
 }
 
+export async function updateMessagePrice(id: string, price: number): Promise<void> {
+  await db.query(
+    `UPDATE messages SET price = $2 WHERE id = $1 AND paid_at IS NULL`,
+    [id, price],
+  );
+}
+
+export async function deleteMessage(id: string): Promise<void> {
+  await db.query(
+    `DELETE FROM messages WHERE id = $1 AND paid_at IS NULL`,
+    [id],
+  );
+}
+
 export async function getMessageById(id: string): Promise<MessageDetail | null> {
   const result = await db.query<MessageDetail>(
     `SELECT m.id, m.fan_id, m.creator_id, m.title, m.message, m.price, m.created_at, m.read_at, m.paid_at,
+            ROUND(m.price * ${CREATOR_SHARE})::int AS creator_earning,
             f.display_name AS fan_name, f.username AS fan_username, f.avatar_url AS fan_avatar_url,
             (cf.verified_at IS NOT NULL) AS fan_verified,
             c.display_name AS creator_name, c.username AS creator_username, c.avatar_url AS creator_avatar_url,

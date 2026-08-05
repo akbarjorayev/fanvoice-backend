@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { findUserByUsername } from '../repositories/user.repository';
 import { getSocialLinksByUserId } from '../repositories/social-links.repository';
 import { getCreatorByUserId, creatorFields } from '../repositories/creator.repository';
-import { USER_NOT_FOUND } from '../constants/messages';
+import { ERROR_CODES } from '../constants/error-codes';
 
 export async function handleGetPublicProfile(
   req: Request,
@@ -14,7 +14,7 @@ export async function handleGetPublicProfile(
     const user = await findUserByUsername(username);
 
     if (!user) {
-      res.status(404).json({ message: USER_NOT_FOUND });
+      res.status(404).json({ code: ERROR_CODES.USER_NOT_FOUND });
       return;
     }
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { httpError } from '../middleware/error.middleware';
+import { ERROR_CODES } from '../constants/error-codes';
 
 export const PLATFORMS = [
   'twitter',
@@ -23,23 +24,20 @@ const DOMAIN_RULES: Record<Platform, RegExp | null> = {
   website:   /^https?:\/\/[^\s]+\.[^\s]{2,}/i,
 };
 
-export function validatePlatformUrl(platform: Platform, url: string): string | null {
+export function validatePlatformUrl(platform: Platform, url: string): boolean {
   const rule = DOMAIN_RULES[platform];
-  if (rule && !rule.test(url)) {
-    return `URL does not match the expected domain for platform "${platform}"`;
-  }
-  return null;
+  return !!rule && !rule.test(url);
 }
 
 export const upsertSocialLinkSchema = z.object({
-  url: z.string().url('Must be a valid URL').max(500, 'URL is too long'),
+  url: z.string().url(ERROR_CODES.VALIDATION_URL_INVALID).max(500, ERROR_CODES.VALIDATION_URL_TOO_LONG),
 });
 
 export const platformParamSchema = z.enum(PLATFORMS);
 
 export function parsePlatformOrThrow(raw: unknown): Platform {
   const parsed = platformParamSchema.safeParse(raw);
-  if (!parsed.success) throw httpError('Invalid platform', 400);
+  if (!parsed.success) throw httpError(ERROR_CODES.SOCIAL_LINK_PLATFORM_INVALID, 400);
   return parsed.data;
 }
 

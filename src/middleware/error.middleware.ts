@@ -1,13 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import { IS_PRODUCTION } from '../constants/env';
+import { ERROR_CODES, ErrorCode } from '../constants/error-codes';
 
 export interface AppError extends Error {
   statusCode?: number;
+  params?: Record<string, string | number>;
 }
 
-export function httpError(message: string, statusCode: number): AppError {
-  const err = new Error(message) as AppError;
+export function httpError(
+  code: ErrorCode,
+  statusCode: number,
+  params?: Record<string, string | number>,
+): AppError {
+  const err = new Error(code) as AppError;
   err.statusCode = statusCode;
+  err.params = params;
   return err;
 }
 
@@ -18,14 +25,12 @@ export function errorHandler(
   _next: NextFunction,
 ): void {
   const statusCode = err.statusCode ?? 500;
-  const message =
-    statusCode === 500 && IS_PRODUCTION
-      ? 'Internal server error'
-      : err.message;
+  const code =
+    statusCode === 500 && IS_PRODUCTION ? ERROR_CODES.INTERNAL_SERVER_ERROR : err.message;
 
   if (statusCode === 500) {
     console.error(err);
   }
 
-  res.status(statusCode).json({ message });
+  res.status(statusCode).json({ code, ...(err.params && { params: err.params }) });
 }
