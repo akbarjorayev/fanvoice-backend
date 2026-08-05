@@ -6,10 +6,10 @@ import { exchangeCodeForProfile } from './google.service';
 import { generateAccessToken } from './token.service';
 import { httpError } from '../middleware/error.middleware';
 import { AUTH_PROVIDER_GOOGLE, AUTH_PROVIDER_PASSWORD } from '../constants/auth';
+import { ERROR_CODES } from '../constants/error-codes';
 import { User } from '../types';
 
 const SALT_ROUNDS = 12;
-const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password';
 
 interface AuthResult {
   user: User;
@@ -57,7 +57,7 @@ export async function emailSignUp(email: string, password: string): Promise<Auth
   const normalizedEmail = email.trim().toLowerCase();
   const existingUser = await findUserByEmail(normalizedEmail);
   if (existingUser) {
-    throw httpError('An account with this email already exists', 409);
+    throw httpError(ERROR_CODES.AUTH_EMAIL_TAKEN, 409);
   }
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -73,17 +73,17 @@ export async function emailSignUp(email: string, password: string): Promise<Auth
 export async function emailSignIn(email: string, password: string): Promise<AuthResult> {
   const user = await findUserByEmail(email.trim().toLowerCase());
   if (!user) {
-    throw httpError(INVALID_CREDENTIALS_MESSAGE, 401);
+    throw httpError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, 401);
   }
 
   const credentials = await getCredentials(user.id);
   if (!credentials) {
-    throw httpError('This account uses Google Sign-In. Please continue with Google.', 400);
+    throw httpError(ERROR_CODES.AUTH_USES_GOOGLE, 400);
   }
 
   const valid = await bcrypt.compare(password, credentials.password_hash);
   if (!valid) {
-    throw httpError(INVALID_CREDENTIALS_MESSAGE, 401);
+    throw httpError(ERROR_CODES.AUTH_INVALID_CREDENTIALS, 401);
   }
 
   return { user, accessToken: generateAccessToken(user) };
@@ -96,12 +96,12 @@ export async function changePassword(
 ): Promise<void> {
   const credentials = await getCredentials(userId);
   if (!credentials) {
-    throw httpError('No password is set for this account', 400);
+    throw httpError(ERROR_CODES.AUTH_NO_PASSWORD_SET, 400);
   }
 
   const valid = await bcrypt.compare(currentPassword, credentials.password_hash);
   if (!valid) {
-    throw httpError('Current password is incorrect', 401);
+    throw httpError(ERROR_CODES.AUTH_CURRENT_PASSWORD_INCORRECT, 401);
   }
 
   const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);

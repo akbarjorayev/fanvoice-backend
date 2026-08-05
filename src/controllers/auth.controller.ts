@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from '../types';
 import { SESSION_COOKIE } from '../constants/cookies';
 import { SESSION_DURATION_MS } from '../constants/session';
 import { IS_PRODUCTION } from '../constants/env';
+import { ERROR_CODES } from '../constants/error-codes';
 
 function cookieOptions(maxAge?: number) {
   return {
@@ -27,7 +28,7 @@ export async function handleGoogleSignIn(
 ): Promise<void> {
   try {
     const { code } = req.body as { code: string };
-    if (!code) { res.status(400).json({ message: 'Missing authorization code' }); return; }
+    if (!code) { res.status(400).json({ code: ERROR_CODES.AUTH_MISSING_CODE }); return; }
     const { user, accessToken } = await googleSignIn(code);
     setSession(res, accessToken);
     res.status(200).json({ user });
@@ -77,7 +78,7 @@ export async function handleChangePassword(
       newPassword: string;
     };
     await changePassword(req.user!.id, currentPassword, newPassword);
-    res.status(200).json({ message: 'Password changed successfully' });
+    res.status(200).json({});
   } catch (err) {
     next(err);
   }
@@ -89,5 +90,5 @@ export function handleGetMe(req: AuthenticatedRequest, res: Response): void {
 
 export function handleLogout(_req: AuthenticatedRequest, res: Response): void {
   res.clearCookie(SESSION_COOKIE, cookieOptions());
-  res.status(200).json({ message: 'Logged out' });
+  res.status(200).json({});
 }

@@ -3,7 +3,7 @@ import { verifyAccessToken } from '../services/token.service';
 import { findUserById } from '../repositories/user.repository';
 import { AuthenticatedRequest } from '../types';
 import { SESSION_COOKIE } from '../constants/cookies';
-import { USER_NOT_FOUND } from '../constants/messages';
+import { ERROR_CODES } from '../constants/error-codes';
 
 export async function requireAuth(
   req: AuthenticatedRequest,
@@ -12,7 +12,7 @@ export async function requireAuth(
 ): Promise<void> {
   const token = req.cookies?.[SESSION_COOKIE];
   if (!token) {
-    res.status(401).json({ message: 'Not authenticated' });
+    res.status(401).json({ code: ERROR_CODES.NOT_AUTHENTICATED });
     return;
   }
 
@@ -20,12 +20,12 @@ export async function requireAuth(
     const payload = verifyAccessToken(token);
     const user = await findUserById(payload.sub);
     if (!user) {
-      res.status(401).json({ message: USER_NOT_FOUND });
+      res.status(401).json({ code: ERROR_CODES.USER_NOT_FOUND });
       return;
     }
     req.user = user;
     next();
   } catch {
-    res.status(401).json({ message: 'Invalid or expired token' });
+    res.status(401).json({ code: ERROR_CODES.TOKEN_INVALID });
   }
 }
